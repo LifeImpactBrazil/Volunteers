@@ -185,7 +185,7 @@ export default function Register() {
             {(props) => <input {...props} placeholder="CPF (000.000.000-00)" className={baseInputClasses} required />}
           </InputMask>
           <input name="email"       type="email" value={form.email}       onChange={handleChange} placeholder="seu@exemplo.com" className={baseInputClasses} required />
-          <input name="phone"       type="tel"   value={form.phone}       onChange={handleChange} placeholder="Tel 99 9999-9999 ou 99 99999-9999" pattern="^\d{2}\s\d{4,5}-\d{4}$" title="Formato: 99 9999-9999 ou 99 99999-9999" className={baseInputClasses} required />
+          <input name="phone"       type="tel"   value={form.phone}       onChange={handleChange} placeholder="Tel (99)9999-9999 ou (99)99999-9999" pattern="^\(\d{2}\)\d{4,5}-\d{4}$" title="Formato: (99)9999-9999 ou (99)99999-9999" className={baseInputClasses} required />
           <input name="religion"    value={form.religion}    onChange={handleChange} placeholder="Fé / Religião" className={baseInputClasses} required />
           <select name="marital_status" value={form.marital_status} onChange={handleChange} className={baseInputClasses} required>
             <option value="">Estado civil</option>
