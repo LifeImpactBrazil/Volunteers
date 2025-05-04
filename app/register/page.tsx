@@ -11,12 +11,14 @@ function validateCPF(cpf: string): boolean {
 
   let sum = 0;
   for (let i = 0; i < 9; i++) sum += parseInt(str[i]) * (10 - i);
-  let check = (sum * 10) % 11; if (check === 10) check = 0;
+  let check = (sum * 10) % 11;
+  if (check === 10) check = 0;
   if (check !== parseInt(str[9])) return false;
 
   sum = 0;
   for (let i = 0; i < 10; i++) sum += parseInt(str[i]) * (11 - i);
-  check = (sum * 10) % 11; if (check === 10) check = 0;
+  check = (sum * 10) % 11;
+  if (check === 10) check = 0;
   if (check !== parseInt(str[10])) return false;
 
   return true;
@@ -24,12 +26,7 @@ function validateCPF(cpf: string): boolean {
 
 export default function Register() {
   const daysOfWeek = ['segunda','terça','quarta','quinta','sexta','sábado','domingo'];
-  const unidades = [
-    'Rio de Janeiro - CDD',
-    'Rio de Janeiro - Gardênia',
-    'Amazonas',
-    'Ceará'
-  ];
+  const unidades = ['Rio de Janeiro - CDD','Rio de Janeiro - Gardênia','Amazonas','Ceará'];
   const maritalOptions = ['solteiro','casado','divorciado','viúvo'];
   const workshopsList = [
     'Organização bazar','Cozinha','Ajudante em oficina de Língua portuguesa',
@@ -74,6 +71,8 @@ export default function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validações iniciais
     if (!form.days.length) {
       setStatus('Selecione pelo menos um dia de atuação.');
       return;
@@ -82,8 +81,81 @@ export default function Register() {
       setStatus('CPF inválido');
       return;
     }
+
     setStatus('Enviando…');
-    // ... montagem do doc, geração do embedding e insert no Supabase ...
+    console.log('🏗️ Submitting form…', form);
+
+    try {
+      // 1) Chama /api/embeddings
+      const embRes = await fetch('/api/embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: form.about || '' })
+      });
+      console.log('⏳ embRes.status:', embRes.status);
+
+      const embText = await embRes.text();
+      console.log('📋 embRes.text:', embText);
+
+      if (!embRes.ok) {
+        throw new Error(`Embedding error: ${embText}`);
+      }
+
+      const about_embedding = JSON.parse(embText) as number[];
+      console.log('✔️ embedding sample:', about_embedding.slice(0, 5));
+
+      // 2) Monta specialties
+      const specialtiesArray = typeof form.specialties === 'string'
+        ? form.specialties.split(',').map((s:string) => s.trim()).filter(Boolean)
+        : form.specialties || [];
+      console.log('🧩 specialtiesArray:', specialtiesArray);
+
+      // 3) Monta payload completo
+      const payload = {
+        full_name:      form.full_name,
+        cpf:            form.cpf,
+        email:          form.email,
+        phone:          form.phone,
+        religion:       form.religion,
+        marital_status: form.marital_status,
+        unidade:        form.unidade,
+        street:         form.street,
+        number:         form.number,
+        complement:     form.complement,
+        district:       form.district,
+        city:           form.city,
+        state:          form.state,
+        cep:            form.cep,
+        hours_per_week: form.hours_per_week,
+        days:           form.days,
+        specialties:    specialtiesArray,
+        about:          form.about,
+        about_embedding,
+        workshops:      form.workshops,
+        workshop_other: form.workshops.includes('Outros (especificar)') 
+                          ? form.workshop_other 
+                          : null
+      };
+      console.log('📦 payload:', payload);
+
+      // 4) Insere no Supabase
+      const { error } = await supabase.from('volunteers').insert(payload);
+      console.log('🏁 supabase insert result:', error);
+      if (error) throw error;
+
+      setStatus('Enviado com sucesso! 🎉');
+      setForm({
+        full_name: '', cpf: '', email: '', phone: '',
+        religion: '', marital_status: '',
+        unidade: '', street: '', number: '', complement: '',
+        district: '', city: '', state: '', cep: '',
+        hours_per_week: '', days: [], specialties: '',
+        about: '', workshops: [], workshop_other: ''
+      });
+    } catch (err: any) {
+      console.error('🚨 submit error:', err);
+      setStatus('Erro: ' + err.message);
+    }
   };
 
   const baseInputClasses = `
@@ -107,254 +179,67 @@ export default function Register() {
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-
-          {/* Nome completo */}
-          <input
-            name="full_name"
-            value={form.full_name}
-            onChange={handleChange}
-            placeholder="Nome completo"
-            className={baseInputClasses}
-            required
-          />
-
-          {/* CPF */}
-          <InputMask
-            mask="999.999.999-99"
-            maskChar={null}
-            name="cpf"
-            value={form.cpf}
-            onChange={handleChange}
-          >
-            {(inputProps: any) => (
-              <input
-                {...inputProps}
-                placeholder="CPF (000.000.000-00)"
-                className={baseInputClasses}
-                required
-              />
-            )}
+          {/* campos… */}
+          <input name="full_name"     value={form.full_name}     onChange={handleChange} placeholder="Nome completo" className={baseInputClasses} required />
+          <InputMask mask="999.999.999-99" maskChar={null} name="cpf" value={form.cpf} onChange={handleChange}>
+            {(props) => <input {...props} placeholder="CPF (000.000.000-00)" className={baseInputClasses} required />}
           </InputMask>
-
-          {/* Email */}
-          <input
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            placeholder="seu@exemplo.com"
-            className={baseInputClasses}
-            required
-          />
-
-          {/* Telefone */}
-          <input
-            name="phone"
-            type="tel"
-            value={form.phone}
-            onChange={handleChange}
-            placeholder="99 9999-9999 ou 99 99999-9999"
-            pattern="^\d{2}\s\d{4,5}-\d{4}$"
-            title="Formato: 99 9999-9999 ou 99 99999-9999"
-            className={baseInputClasses}
-            required
-          />
-
-          {/* Fé / Religião */}
-          <input
-            name="religion"
-            value={form.religion}
-            onChange={handleChange}
-            placeholder="Fé / Religião"
-            className={baseInputClasses}
-            required
-          />
-
-          {/* Estado civil */}
-          <select
-            name="marital_status"
-            value={form.marital_status}
-            onChange={handleChange}
-            className={baseInputClasses}
-            required
-          >
+          <input name="email"       type="email" value={form.email}       onChange={handleChange} placeholder="seu@exemplo.com" className={baseInputClasses} required />
+          <input name="phone"       type="tel"   value={form.phone}       onChange={handleChange} placeholder="Tel 99 9999-9999 ou 99 99999-9999" pattern="^\d{2}\s\d{4,5}-\d{4}$" title="Formato: 99 9999-9999 ou 99 99999-9999" className={baseInputClasses} required />
+          <input name="religion"    value={form.religion}    onChange={handleChange} placeholder="Fé / Religião" className={baseInputClasses} required />
+          <select name="marital_status" value={form.marital_status} onChange={handleChange} className={baseInputClasses} required>
             <option value="">Estado civil</option>
-            {maritalOptions.map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+            {maritalOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
-
-          {/* Unidade */}
-          <select
-            name="unidade"
-            value={form.unidade}
-            onChange={handleChange}
-            className={baseInputClasses}
-            required
-          >
+          <select name="unidade"    value={form.unidade}    onChange={handleChange} className={baseInputClasses} required>
             <option value="">Selecione a unidade</option>
-            {unidades.map(u => (
-              <option key={u} value={u}>{u}</option>
-            ))}
+            {unidades.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
-
-          {/* Oficinas (somente RJ) */}
           {rjUnits.includes(form.unidade) && (
             <fieldset className="space-y-2">
               <legend className="font-semibold text-gray-700">Oficinas</legend>
               <div className="flex flex-wrap gap-3">
                 {workshopsList.map(w => (
                   <label key={w} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="workshops"
-                      value={w}
-                      checked={form.workshops.includes(w)}
-                      onChange={handleChange}
-                      className="h-5 w-5 text-green-600"
-                    />
+                    <input type="checkbox" name="workshops" value={w} checked={form.workshops.includes(w)} onChange={handleChange} className="h-5 w-5 text-green-600" />
                     <span className="text-gray-800">{w}</span>
                   </label>
                 ))}
               </div>
               {form.workshops.includes('Outros (especificar)') && (
-                <input
-                  name="workshop_other"
-                  value={form.workshop_other}
-                  onChange={handleChange}
-                  placeholder="Especifique outras oficinas"
-                  className={`${baseInputClasses} mt-2`}
-                />
+                <input name="workshop_other" value={form.workshop_other} onChange={handleChange} placeholder="Especifique outras oficinas" className={`${baseInputClasses} mt-2`} />
               )}
             </fieldset>
           )}
+          <textarea name="specialties" value={form.specialties} onChange={handleChange} placeholder="Especialidades (separe por vírgula)" className={`${baseInputClasses} h-24 resize-none`} />
+          <textarea name="about"        value={form.about}        onChange={handleChange} placeholder="Fale sobre você" className={`${baseInputClasses} h-40 resize-y`} required />
 
-          {/* Especialidades */}
-          <textarea
-            name="specialties"
-            value={form.specialties}
-            onChange={handleChange}
-            placeholder="Especialidades (separe por vírgula)"
-            className={`${baseInputClasses} h-24 resize-none`}
-          />
-
-          {/* Fale sobre você */}
-          <textarea
-            name="about"
-            value={form.about}
-            onChange={handleChange}
-            placeholder="Fale sobre você"
-            className={`${baseInputClasses} h-40 resize-y`}
-            required
-          />
-
-          {/* Endereço */}
           <div className="grid grid-cols-2 gap-4">
-            <input
-              name="street"
-              value={form.street}
-              onChange={handleChange}
-              placeholder="Rua"
-              className={baseInputClasses}
-              required
-            />
-            <input
-              name="number"
-              value={form.number}
-              onChange={handleChange}
-              placeholder="Número"
-              className={baseInputClasses}
-              required
-            />
-            <input
-              name="complement"
-              value={form.complement}
-              onChange={handleChange}
-              placeholder="Complemento"
-              className={baseInputClasses}
-            />
-            <input
-              name="district"
-              value={form.district}
-              onChange={handleChange}
-              placeholder="Bairro"
-              className={baseInputClasses}
-              required
-            />
-            <input
-              name="city"
-              value={form.city}
-              onChange={handleChange}
-              placeholder="Cidade"
-              className={baseInputClasses}
-              required
-            />
-            <select
-              name="state"
-              value={form.state}
-              onChange={handleChange}
-              className={baseInputClasses}
-              required
-            >
+            <input name="street"  value={form.street}  onChange={handleChange} placeholder="Rua" className={baseInputClasses} required />
+            <input name="number"  value={form.number}  onChange={handleChange} placeholder="Número" className={baseInputClasses} required />
+            <input name="complement" value={form.complement} onChange={handleChange} placeholder="Complemento" className={baseInputClasses} />
+            <input name="district"  value={form.district}  onChange={handleChange} placeholder="Bairro" className={baseInputClasses} required />
+            <input name="city"      value={form.city}      onChange={handleChange} placeholder="Cidade" className={baseInputClasses} required />
+            <select name="state"   value={form.state}   onChange={handleChange} className={baseInputClasses} required>
               <option value="">UF</option>
-              {brazilStates.map(uf => (
-                <option key={uf} value={uf}>{uf}</option>
-              ))}
+              {brazilStates.map(uf => <option key={uf} value={uf}>{uf}</option>)}
             </select>
-            <InputMask
-              mask="99999-999"
-              maskChar={null}
-              name="cep"
-              value={form.cep}
-              onChange={handleChange}
-            >
-              {(inputProps: any) => (
-                <input
-                  {...inputProps}
-                  placeholder="CEP (00000-000)"
-                  className={baseInputClasses}
-                  required
-                />
-              )}
+            <InputMask mask="99999-999" maskChar={null} name="cep" value={form.cep} onChange={handleChange}>
+              {(props) => <input {...props} placeholder="CEP (00000-000)" className={baseInputClasses} required />}
             </InputMask>
-            <input
-              name="hours_per_week"
-              type="number"
-              value={form.hours_per_week}
-              onChange={handleChange}
-              placeholder="Horas/semana"
-              className={baseInputClasses}
-              min={1}
-              required
-            />
+            <input name="hours_per_week" type="number" value={form.hours_per_week} onChange={handleChange} placeholder="Horas/semana" className={baseInputClasses} min={1} required />
           </div>
 
-          {/* Dias da semana */}
           <fieldset className="flex flex-wrap gap-3">
             {daysOfWeek.map(d => (
               <label key={d} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="days"
-                  value={d}
-                  checked={form.days.includes(d)}
-                  onChange={handleChange}
-                  className="h-5 w-5 text-green-600"
-                />
+                <input type="checkbox" name="days" value={d} checked={form.days.includes(d)} onChange={handleChange} className="h-5 w-5 text-green-600" />
                 <span className="text-gray-800 capitalize">{d}</span>
               </label>
             ))}
           </fieldset>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            className="
-              w-full bg-green-600 hover:bg-green-700
-              text-white font-semibold py-3 rounded-lg
-              shadow-md transition
-            "
-          >
+          <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg shadow-md transition">
             Enviar
           </button>
         </form>
