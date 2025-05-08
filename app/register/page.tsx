@@ -1,3 +1,4 @@
+// app/register/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -25,9 +26,9 @@ function validateCPF(cpf: string): boolean {
 }
 
 export default function Register() {
-  const daysOfWeek = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+  const daysOfWeek = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
   const unidades = ['Rio de Janeiro - CDD', 'Rio de Janeiro - Gardênia', 'Amazonas', 'Ceará'];
-  const maritalOptions = ['solteiro', 'casado', 'divorciado', 'viúvo'];
+  const maritalOptions = ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)'];
   const workshopsList = [
     'Organização bazar', 'Cozinha', 'Ajudante em oficina de Língua portuguesa',
     'Ajudante em oficina de Matemática', 'Futebol', 'Balé', 'De leitura', 'De letramento',
@@ -42,13 +43,27 @@ export default function Register() {
   ];
 
   const [form, setForm] = useState<any>({
-    full_name: '', cpf: '', email: '', phone: '',
-    religion: '', marital_status: '',
-    unidade: '', street: '', number: '', complement: '',
-    district: '', city: '', state: '', cep: '',
-    hours_per_week: '', days: [] as string[],
-    specialties: '', about: '',
-    workshops: [] as string[], workshop_other: ''
+    full_name: '',
+    cpf: '',
+    email: '',
+    phone: '',
+    age: '',
+    religion: '',
+    marital_status: '',
+    unidade: '',
+    street: '',
+    number: '',
+    complement: '',
+    district: '',
+    city: '',
+    state: '',
+    cep: '',
+    hours_per_week: '',
+    days: [] as string[],
+    specialties: '',
+    about: '',
+    workshops: [] as string[],
+    workshop_other: ''
   });
   const [status, setStatus] = useState<string>('');
 
@@ -72,7 +87,7 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    /* ---------- Validações ---------- */
+    // Validações
     if (!form.days.length) {
       setStatus('Selecione pelo menos um dia de atuação.');
       return;
@@ -81,32 +96,39 @@ export default function Register() {
       setStatus('CPF inválido');
       return;
     }
+    if (form.age === '' || parseInt(form.age, 10) < 0) {
+      setStatus('Idade inválida. Informe um número ≥ 0.');
+      return;
+    }
 
     setStatus('Enviando…');
     console.log('🏗️ Submitting form…', form);
 
     try {
-      /* ---------- 1) Pré‑processa campos para embedding ---------- */
+      // Preparar embedding
       const specialtiesArray = typeof form.specialties === 'string'
         ? form.specialties.split(',').map((s: string) => s.trim()).filter(Boolean)
         : form.specialties || [];
 
       const createdAt = new Date().toISOString();
 
-    const textToEmbed = [
+      const textToEmbed = [
         `Nome: ${form.full_name}`,
         `CPF: ${form.cpf}`,
+        `Idade: ${form.age}`,
         `Religião: ${form.religion}`,
         `Estado civil: ${form.marital_status}`,
-        `Endereço: ${form.street}, ${form.district}, ${form.city}`,
+        `Unidade: ${form.unidade}`,
+        `Endereço: ${form.street}, ${form.district}, ${form.city} - ${form.state}, CEP ${form.cep}`,
+        `Horas/semana: ${form.hours_per_week}`,
+        `Dias: ${form.days.join(', ')}`,
+        `Especialidades: ${specialtiesArray.join(', ')}`,
         `Sobre: ${form.about}`,
-        specialtiesArray.length ? `Especialidades: ${specialtiesArray.join(', ')}` : '',
         form.workshops.length ? `Oficinas: ${form.workshops.join(', ')}` : '',
         form.workshop_other ? `Outra oficina: ${form.workshop_other}` : '',
         `Criado em: ${createdAt}`
       ].filter(Boolean).join('\n');
 
-      /* ---------- 2) Gera embedding ---------- */
       const embRes = await fetch('/api/embeddings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,13 +138,12 @@ export default function Register() {
       if (!embRes.ok) throw new Error(`Embedding error: ${embText}`);
       const about_embedding = JSON.parse(embText) as number[];
 
-
-      /* ---------- 3) Monta payload completo ---------- */
       const payload = {
         full_name:      form.full_name,
         cpf:            form.cpf,
         email:          form.email,
         phone:          form.phone,
+        age:            parseInt(form.age, 10),
         religion:       form.religion,
         marital_status: form.marital_status,
         unidade:        form.unidade,
@@ -146,27 +167,39 @@ export default function Register() {
       };
       console.log('📦 payload:', payload);
 
-      /* ---------- 4) Insere no Supabase ---------- */
       const { error } = await supabase.from('volunteers').insert(payload);
       console.log('🏁 supabase insert result:', error);
       if (error) throw error;
 
-      /* ---------- 5) Reseta formulário ---------- */
       setStatus('Enviado com sucesso! 🎉');
       setForm({
-        full_name: '', cpf: '', email: '', phone: '',
-        religion: '', marital_status: '',
-        unidade: '', street: '', number: '', complement: '',
-        district: '', city: '', state: '', cep: '',
-        hours_per_week: '', days: [], specialties: '',
-        about: '', workshops: [], workshop_other: ''
+        full_name: '',
+        cpf: '',
+        email: '',
+        phone: '',
+        age: '',
+        religion: '',
+        marital_status: '',
+        unidade: '',
+        street: '',
+        number: '',
+        complement: '',
+        district: '',
+        city: '',
+        state: '',
+        cep: '',
+        hours_per_week: '',
+        days: [],
+        specialties: '',
+        about: '',
+        workshops: [],
+        workshop_other: ''
       });
     } catch (err: any) {
       console.error('🚨 submit error:', err);
       setStatus('Erro: ' + err.message);
     }
   };
-
 
   const baseInputClasses = `
     block w-full rounded-lg border border-gray-300
@@ -191,7 +224,6 @@ export default function Register() {
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* campos… */}
           <input
             name="full_name"
             value={form.full_name}
@@ -200,6 +232,7 @@ export default function Register() {
             className={baseInputClasses}
             required
           />
+
           <InputMask
             mask="999.999.999-99"
             maskChar={null}
@@ -216,6 +249,7 @@ export default function Register() {
               />
             )}
           </InputMask>
+
           <input
             name="email"
             type="email"
@@ -225,6 +259,7 @@ export default function Register() {
             className={baseInputClasses}
             required
           />
+
           <input
             name="phone"
             type="tel"
@@ -236,6 +271,18 @@ export default function Register() {
             className={baseInputClasses}
             required
           />
+
+          <input
+            name="age"
+            type="number"
+            value={form.age}
+            onChange={handleChange}
+            placeholder="Idade"
+            className={baseInputClasses}
+            min={0}
+            required
+          />
+
           <input
             name="religion"
             value={form.religion}
@@ -244,6 +291,7 @@ export default function Register() {
             className={baseInputClasses}
             required
           />
+
           <select
             name="marital_status"
             value={form.marital_status}
@@ -258,6 +306,7 @@ export default function Register() {
               </option>
             ))}
           </select>
+
           <select
             name="unidade"
             value={form.unidade}
@@ -297,7 +346,7 @@ export default function Register() {
                   value={form.workshop_other}
                   onChange={handleChange}
                   placeholder="Especifique outras oficinas"
-                  className={`${baseInputClasses} mt-2`}
+                  className={baseInputClasses}
                 />
               )}
             </fieldset>
@@ -310,6 +359,7 @@ export default function Register() {
             placeholder="Especialidades (separe por vírgula)"
             className={`${baseInputClasses} h-24 resize-none`}
           />
+
           <textarea
             name="about"
             value={form.about}
@@ -422,7 +472,7 @@ export default function Register() {
             className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg shadow-md transition"
           >
             Enviar
-          </button>
+          </button>		
         </form>
 
         {status && (
