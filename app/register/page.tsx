@@ -102,7 +102,6 @@ export default function Register() {
     }
 
     setStatus('Enviando…');
-    console.log('🏗️ Submitting form…', form);
 
     try {
       // Preparar embedding
@@ -165,10 +164,8 @@ export default function Register() {
           : null,
         created_at:     createdAt
       };
-      console.log('📦 payload:', payload);
 
       const { error } = await supabase.from('volunteers').insert(payload);
-      console.log('🏁 supabase insert result:', error);
       if (error) throw error;
 
       setStatus('Enviado com sucesso! 🎉');
@@ -196,7 +193,7 @@ export default function Register() {
         workshop_other: ''
       });
     } catch (err: any) {
-      console.error('🚨 submit error:', err);
+      console.error(err);
       setStatus('Erro: ' + err.message);
     }
   };
@@ -287,7 +284,7 @@ export default function Register() {
             name="religion"
             value={form.religion}
             onChange={handleChange}
-            placeholder="Fé / Religião"
+            placeholder="Religião / Igreja"
             className={baseInputClasses}
             required
           />
@@ -324,7 +321,7 @@ export default function Register() {
 
           {rjUnits.includes(form.unidade) && (
             <fieldset className="space-y-2">
-              <legend className="font-semibold text-gray-700">Oficinas</legend>
+              <legend className="font-semibold text-gray-700">Oficinas / Áreas:</legend>
               <div className="flex flex-wrap gap-3">
                 {workshopsList.map((w) => (
                   <label key={w} className="flex items-center gap-2">
@@ -369,6 +366,7 @@ export default function Register() {
             required
           />
 
+          {/* Endereço */}
           <div className="grid grid-cols-2 gap-4">
             <input
               name="street"
@@ -439,40 +437,51 @@ export default function Register() {
                 />
               )}
             </InputMask>
-            <input
-              name="hours_per_week"
-              type="number"
-              value={form.hours_per_week}
-              onChange={handleChange}
-              placeholder="Horas/semana"
-              className={baseInputClasses}
-              min={1}
-              required
-            />
           </div>
 
-          <fieldset className="flex flex-wrap gap-3">
-            {daysOfWeek.map((d) => (
-              <label key={d} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="days"
-                  value={d}
-                  checked={form.days.includes(d)}
-                  onChange={handleChange}
-                  className="h-5 w-5 text-green-600"
-                />
-                <span className="text-gray-800 capitalize">{d}</span>
-              </label>
-            ))}
-          </fieldset>
+          {/* Disponibilidade */}
+          <div className="space-y-2">
+            <label className="block text-gray-700 font-semibold">
+              Disponibilidade:
+            </label>
+
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                name="hours_per_week"
+                type="number"
+                value={form.hours_per_week}
+                onChange={handleChange}
+                placeholder="Horas/semana"
+                className={baseInputClasses}
+                min={1}
+                required
+              />
+              <div />
+            </div>
+
+            <fieldset className="flex flex-wrap gap-3">
+              {daysOfWeek.map((d) => (
+                <label key={d} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="days"
+                    value={d}
+                    checked={form.days.includes(d)}
+                    onChange={handleChange}
+                    className="h-5 w-5 text-green-600"
+                  />
+                  <span className="text-gray-800 capitalize">{d}</span>
+                </label>
+              ))}
+            </fieldset>
+          </div>
 
           <button
             type="submit"
             className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg shadow-md transition"
           >
             Enviar
-          </button>		
+          </button>
         </form>
 
         {status && (
