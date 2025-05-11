@@ -192,10 +192,10 @@ export default function Register() {
                  placeholder="seu@exemplo.com" maxLength={MAX_EMAIL}
                  className={baseInput} required/>
 
-          {/* Telefone */}
+          {/* Telefone (regex com espaço opcional) */}
           <input name="phone" type="tel" value={form.phone} onChange={handleChange}
                  placeholder="Tel (99)9999-9999 ou (99)99999-9999"
-                 pattern="^\\(\\d{2}\\)\\d{4,5}-\\d{4}$"
+                 pattern="^\(\d{2}\)\s?\d{4,5}-\d{4}$"
                  title="Formato: (99)9999-9999 ou (99)99999-9999"
                  maxLength={MAX_PHONE}
                  className={`${baseInput} ${smallPH}`} required/>
