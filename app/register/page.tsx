@@ -5,27 +5,35 @@ import { useState } from 'react';
 import InputMask from 'react-input-mask';
 import { supabase } from '../../lib/supabaseClient';
 
+/* ---------- limites ---------- */
+const MAX_NAME = 220;
+const MAX_EMAIL = 220;
+const MAX_PHONE = 30;
+const MAX_RELIGION = 200;
+const MAX_SPECIALTIES = 900;
+const MAX_ABOUT = 5000;
+const MAX_ADDRESS_FIELD = 200;
+const MAX_WORKSHOP_OTHER = 400;
+
+/* --------- CPF util --------- */
 function validateCPF(cpf: string): boolean {
   const str = cpf.replace(/\D+/g, '');
   if (str.length !== 11) return false;
   if (/^(\d)\1{10}$/.test(str)) return false;
-
   let sum = 0;
-  for (let i = 0; i < 9; i++) sum += parseInt(str[i]) * (10 - i);
+  for (let i = 0; i < 9; i++) sum += +str[i] * (10 - i);
   let check = (sum * 10) % 11;
   if (check === 10) check = 0;
-  if (check !== parseInt(str[9])) return false;
-
+  if (check !== +str[9]) return false;
   sum = 0;
-  for (let i = 0; i < 10; i++) sum += parseInt(str[i]) * (11 - i);
+  for (let i = 0; i < 10; i++) sum += +str[i] * (11 - i);
   check = (sum * 10) % 11;
   if (check === 10) check = 0;
-  if (check !== parseInt(str[10])) return false;
-
-  return true;
+  return check === +str[10];
 }
 
 export default function Register() {
+  /* ---------- constantes fixas ---------- */
   const daysOfWeek = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
   const unidades = ['Rio de Janeiro - CDD', 'Rio de Janeiro - Gardênia', 'Amazonas', 'Ceará'];
   const maritalOptions = ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)'];
@@ -38,79 +46,66 @@ export default function Register() {
   ];
   const rjUnits = ['Rio de Janeiro - CDD', 'Rio de Janeiro - Gardênia'];
   const brazilStates = [
-    'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS',
-    'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+    'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS',
+    'MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'
   ];
 
+  /* ---------- estado ---------- */
   const [form, setForm] = useState<any>({
-    full_name: '',
-    cpf: '',
-    email: '',
-    phone: '',
-    age: '',
-    religion: '',
-    marital_status: '',
-    unidade: '',
-    street: '',
-    number: '',
-    complement: '',
-    district: '',
-    city: '',
-    state: '',
-    cep: '',
-    hours_per_week: '',
+    full_name: '', cpf: '', email: '', phone: '', age: '',
+    religion: '', marital_status: '', unidade: '',
+    street: '', number: '', complement: '', district: '', city: '', state: '',
+    cep: '', hours_per_week: '',
     days: [] as string[],
-    specialties: '',
-    about: '',
+    specialties: '', about: '',
     workshops: [] as string[],
     workshop_other: ''
   });
-  const [status, setStatus] = useState<string>('');
+  const [status, setStatus] = useState('');
 
+  /* ---------- handleChange (agora funcional) ---------- */
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value, checked } = e.target as any;
+
     if (name === 'days' || name === 'workshops') {
-      const arr = form[name] || [];
-      setForm({
-        ...form,
-        [name]: checked
-          ? [...arr, value]
-          : arr.filter((v: string) => v !== value)
+      setForm(prev => {
+        const arr = prev[name] || [];
+        return {
+          ...prev,
+          [name]: checked
+            ? [...arr, value]
+            : arr.filter((v: string) => v !== value)
+        };
       });
     } else {
-      setForm({ ...form, [name]: value });
+      setForm(prev => ({ ...prev, [name]: value }));
     }
   };
 
+  /* ---------- handleSubmit (limites + envio) ---------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validações
-    if (!form.days.length) {
-      setStatus('Selecione pelo menos um dia de atuação.');
-      return;
-    }
-    if (!validateCPF(form.cpf)) {
-      setStatus('CPF inválido');
-      return;
-    }
-    if (form.age === '' || parseInt(form.age, 10) < 0) {
-      setStatus('Idade inválida. Informe um número ≥ 0.');
-      return;
-    }
+    // limites de caracteres
+    if (form.full_name.length > MAX_NAME)            { setStatus(`Nome ≤ ${MAX_NAME}`);          return; }
+    if (form.specialties.length > MAX_SPECIALTIES)   { setStatus(`Especialidades ≤ ${MAX_SPECIALTIES}`); return; }
+    if (form.about.length > MAX_ABOUT)               { setStatus(`"Sobre" ≤ ${MAX_ABOUT}`);      return; }
+    if (form.workshop_other.length > MAX_WORKSHOP_OTHER) { setStatus(`Outros ≤ ${MAX_WORKSHOP_OTHER}`); return; }
+
+    // validações existentes
+    if (!form.days.length)           { setStatus('Selecione pelo menos um dia.'); return; }
+    if (!validateCPF(form.cpf))      { setStatus('CPF inválido.');                return; }
+    if (form.age === '' || +form.age < 0) { setStatus('Idade inválida.');         return; }
 
     setStatus('Enviando…');
 
     try {
-      // Preparar embedding
-      const specialtiesArray = typeof form.specialties === 'string'
-        ? form.specialties.split(',').map((s: string) => s.trim()).filter(Boolean)
-        : form.specialties || [];
-
+      const specialtiesArray = form.specialties.split(',').map((s:string)=>s.trim()).filter(Boolean);
       const createdAt = new Date().toISOString();
 
+      /* monta texto p/ embedding */
       const textToEmbed = [
         `Nome: ${form.full_name}`,
         `CPF: ${form.cpf}`,
@@ -118,7 +113,7 @@ export default function Register() {
         `Religião: ${form.religion}`,
         `Estado civil: ${form.marital_status}`,
         `Unidade: ${form.unidade}`,
-        `Endereço: ${form.street}, ${form.district}, ${form.city} - ${form.state}, CEP ${form.cep}`,
+        `Endereço: ${form.street}, ${form.district}, ${form.city}-${form.state}, CEP ${form.cep}`,
         `Horas/semana: ${form.hours_per_week}`,
         `Dias: ${form.days.join(', ')}`,
         `Especialidades: ${specialtiesArray.join(', ')}`,
@@ -128,41 +123,22 @@ export default function Register() {
         `Criado em: ${createdAt}`
       ].filter(Boolean).join('\n');
 
+      /* embedding */
       const embRes = await fetch('/api/embeddings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: textToEmbed })
       });
-      const embText = await embRes.text();
-      if (!embRes.ok) throw new Error(`Embedding error: ${embText}`);
-      const about_embedding = JSON.parse(embText) as number[];
+      const vec = await embRes.json();
 
+      /* payload */
       const payload = {
-        full_name:      form.full_name,
-        cpf:            form.cpf,
-        email:          form.email,
-        phone:          form.phone,
-        age:            parseInt(form.age, 10),
-        religion:       form.religion,
-        marital_status: form.marital_status,
-        unidade:        form.unidade,
-        street:         form.street,
-        number:         form.number,
-        complement:     form.complement,
-        district:       form.district,
-        city:           form.city,
-        state:          form.state,
-        cep:            form.cep,
-        hours_per_week: form.hours_per_week,
-        days:           form.days,
-        specialties:    specialtiesArray,
-        about:          form.about,
-        about_embedding,
-        workshops:      form.workshops,
-        workshop_other: form.workshops.includes('Outros (especificar)')
-          ? form.workshop_other
-          : null,
-        created_at:     createdAt
+        ...form,
+        age: +form.age,
+        specialties: specialtiesArray,
+        about_embedding: vec,
+        workshop_other: form.workshops.includes('Outros (especificar)') ? form.workshop_other : null,
+        created_at: createdAt
       };
 
       const { error } = await supabase.from('volunteers').insert(payload);
@@ -170,325 +146,174 @@ export default function Register() {
 
       setStatus('Enviado com sucesso! 🎉');
       setForm({
-        full_name: '',
-        cpf: '',
-        email: '',
-        phone: '',
-        age: '',
-        religion: '',
-        marital_status: '',
-        unidade: '',
-        street: '',
-        number: '',
-        complement: '',
-        district: '',
-        city: '',
-        state: '',
-        cep: '',
-        hours_per_week: '',
-        days: [],
-        specialties: '',
-        about: '',
-        workshops: [],
-        workshop_other: ''
+        full_name:'',cpf:'',email:'',phone:'',age:'',religion:'',
+        marital_status:'',unidade:'',street:'',number:'',complement:'',
+        district:'',city:'',state:'',cep:'',hours_per_week:'',
+        days:[],specialties:'',about:'',workshops:[],workshop_other:''
       });
-    } catch (err: any) {
-      console.error(err);
-      setStatus('Erro: ' + err.message);
+    } catch (err:any) {
+      setStatus('Erro: '+err.message);
     }
   };
 
-  const baseInputClasses = `
+  /* ---------- classes util ---------- */
+  const baseInput = `
     block w-full rounded-lg border border-gray-300
     bg-white bg-opacity-80 px-4 py-3 placeholder-gray-500
-    focus:outline-none focus:ring-2 focus:ring-green-500
-    transition
+    focus:outline-none focus:ring-2 focus:ring-green-500 transition
   `;
+  const smallPH = 'placeholder:text-xs sm:placeholder:text-sm';
 
+  /* ---------- JSX ---------- */
   return (
-    <div
-      className="flex items-center justify-center min-h-screen bg-cover bg-center"
-      style={{ backgroundImage: "url('/background.jpg')" }}
-    >
-      <div
-        className="
-          bg-white bg-opacity-70 backdrop-blur-lg shadow-xl
-          rounded-2xl p-8 max-w-lg w-full mx-4
-        "
-      >
+    <div className="flex items-center justify-center min-h-screen bg-cover bg-center"
+         style={{ backgroundImage:"url('/background.jpg')" }}>
+      <div className="bg-white/70 backdrop-blur-lg shadow-xl rounded-2xl p-8 max-w-lg w-full mx-4">
         <h2 className="text-3xl font-extrabold mb-6 text-center text-green-800">
           Formulário de Voluntário
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <input
-            name="full_name"
-            value={form.full_name}
-            onChange={handleChange}
-            placeholder="Nome completo"
-            className={baseInputClasses}
-            required
-          />
+          {/* Nome */}
+          <input name="full_name" value={form.full_name} onChange={handleChange}
+                 placeholder="Nome completo" maxLength={MAX_NAME} className={baseInput} required/>
 
-          <InputMask
-            mask="999.999.999-99"
-            maskChar={null}
-            name="cpf"
-            value={form.cpf}
-            onChange={handleChange}
-          >
-            {(props) => (
-              <input
-                {...props}
-                placeholder="CPF (000.000.000-00)"
-                className={baseInputClasses}
-                required
-              />
-            )}
+          {/* CPF */}
+          <InputMask mask="999.999.999-99" maskChar={null}
+                     name="cpf" value={form.cpf} onChange={handleChange}>
+            {(props)=><input {...props} placeholder="CPF (000.000.000-00)" className={baseInput} required/>}
           </InputMask>
 
-          <input
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            placeholder="seu@exemplo.com"
-            className={baseInputClasses}
-            required
-          />
+          {/* Email */}
+          <input name="email" type="email" value={form.email} onChange={handleChange}
+                 placeholder="seu@exemplo.com" maxLength={MAX_EMAIL}
+                 className={baseInput} required/>
 
-          <input
-            name="phone"
-            type="tel"
-            value={form.phone}
-            onChange={handleChange}
-            placeholder="Tel (99)9999-9999 ou (99)99999-9999"
-            pattern="^\(\d{2}\)\d{4,5}-\d{4}$"
-            title="Formato: (99)9999-9999 ou (99)99999-9999"
-            className={baseInputClasses}
-            required
-          />
+          {/* Telefone */}
+          <input name="phone" type="tel" value={form.phone} onChange={handleChange}
+                 placeholder="Tel (99)9999-9999 ou (99)99999-9999"
+                 pattern="^\(\d{2}\)\d{4,5}-\d{4}$"
+                 title="Formato: (99)9999-9999 ou (99)99999-9999"
+                 maxLength={MAX_PHONE}
+                 className={`${baseInput} ${smallPH}`} required/>
 
-          <input
-            name="age"
-            type="number"
-            value={form.age}
-            onChange={handleChange}
-            placeholder="Idade"
-            className={baseInputClasses}
-            min={0}
-            required
-          />
+          {/* Idade */}
+          <input name="age" type="number" value={form.age} onChange={handleChange}
+                 placeholder="Idade" min={0} className={baseInput} required/>
 
-          <input
-            name="religion"
-            value={form.religion}
-            onChange={handleChange}
-            placeholder="Religião / Igreja"
-            className={baseInputClasses}
-            required
-          />
+          {/* Religião */}
+          <input name="religion" value={form.religion} onChange={handleChange}
+                 placeholder="Religião / Igreja" maxLength={MAX_RELIGION}
+                 className={baseInput} required/>
 
-          <select
-            name="marital_status"
-            value={form.marital_status}
-            onChange={handleChange}
-            className={baseInputClasses}
-            required
-          >
+          {/* Estado civil */}
+          <select name="marital_status" value={form.marital_status} onChange={handleChange}
+                  className={baseInput} required>
             <option value="">Estado civil</option>
-            {maritalOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
+            {maritalOptions.map(opt=>(
+              <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
 
-          <select
-            name="unidade"
-            value={form.unidade}
-            onChange={handleChange}
-            className={baseInputClasses}
-            required
-          >
+          {/* Unidade */}
+          <select name="unidade" value={form.unidade} onChange={handleChange}
+                  className={baseInput} required>
             <option value="">Selecione a unidade</option>
-            {unidades.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
+            {unidades.map(u=><option key={u} value={u}>{u}</option>)}
           </select>
 
+          {/* Workshops se RJ */}
           {rjUnits.includes(form.unidade) && (
             <fieldset className="space-y-2">
               <legend className="font-semibold text-gray-700">Oficinas / Áreas:</legend>
               <div className="flex flex-wrap gap-3">
-                {workshopsList.map((w) => (
+                {workshopsList.map(w=>(
                   <label key={w} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="workshops"
-                      value={w}
-                      checked={form.workshops.includes(w)}
-                      onChange={handleChange}
-                      className="h-5 w-5 text-green-600"
-                    />
-                    <span className="text-gray-800">{w}</span>
+                    <input type="checkbox" name="workshops" value={w}
+                           checked={form.workshops.includes(w)} onChange={handleChange}
+                           className="h-5 w-5 text-green-600"/>
+                    <span>{w}</span>
                   </label>
                 ))}
               </div>
               {form.workshops.includes('Outros (especificar)') && (
-                <input
-                  name="workshop_other"
-                  value={form.workshop_other}
-                  onChange={handleChange}
-                  placeholder="Especifique outras oficinas"
-                  className={baseInputClasses}
-                />
+                <input name="workshop_other" value={form.workshop_other} onChange={handleChange}
+                       placeholder="Especifique outras oficinas" maxLength={MAX_WORKSHOP_OTHER}
+                       className={baseInput}/>
               )}
             </fieldset>
           )}
 
-          <textarea
-            name="specialties"
-            value={form.specialties}
-            onChange={handleChange}
+          {/* Especialidades */}
+          <textarea name="specialties" value={form.specialties} onChange={handleChange}
             placeholder="Especialidades (separe por vírgula)"
-            className={`${baseInputClasses} h-24 resize-none`}
-          />
+            className={`${baseInput} h-24 resize-none`} maxLength={MAX_SPECIALTIES}/>
 
-          <textarea
-            name="about"
-            value={form.about}
-            onChange={handleChange}
-            placeholder="Fale sobre você"
-            className={`${baseInputClasses} h-40 resize-y`}
-            required
-          />
+          {/* Sobre */}
+          <div>
+            <textarea name="about" value={form.about} onChange={handleChange}
+              placeholder="Fale sobre você"
+              className={`${baseInput} h-40 resize-y`} maxLength={MAX_ABOUT} required/>
+            <p className="text-right text-xs text-gray-500">
+              {form.about.length}/{MAX_ABOUT}
+            </p>
+          </div>
 
           {/* Endereço */}
           <div className="grid grid-cols-2 gap-4">
-            <input
-              name="street"
-              value={form.street}
-              onChange={handleChange}
-              placeholder="Rua"
-              className={baseInputClasses}
-              required
-            />
-            <input
-              name="number"
-              value={form.number}
-              onChange={handleChange}
-              placeholder="Número"
-              className={baseInputClasses}
-              required
-            />
-            <input
-              name="complement"
-              value={form.complement}
-              onChange={handleChange}
-              placeholder="Complemento"
-              className={baseInputClasses}
-            />
-            <input
-              name="district"
-              value={form.district}
-              onChange={handleChange}
-              placeholder="Bairro"
-              className={baseInputClasses}
-              required
-            />
-            <input
-              name="city"
-              value={form.city}
-              onChange={handleChange}
-              placeholder="Cidade"
-              className={baseInputClasses}
-              required
-            />
-            <select
-              name="state"
-              value={form.state}
-              onChange={handleChange}
-              className={baseInputClasses}
-              required
-            >
+            <input name="street" value={form.street} onChange={handleChange}
+                   placeholder="Rua" maxLength={MAX_ADDRESS_FIELD} className={baseInput} required/>
+            <input name="number" value={form.number} onChange={handleChange}
+                   placeholder="Número" maxLength={20} className={baseInput} required/>
+            <input name="complement" value={form.complement} onChange={handleChange}
+                   placeholder="Complemento" maxLength={MAX_ADDRESS_FIELD} className={baseInput}/>
+            <input name="district" value={form.district} onChange={handleChange}
+                   placeholder="Bairro" maxLength={MAX_ADDRESS_FIELD} className={baseInput} required/>
+            <input name="city" value={form.city} onChange={handleChange}
+                   placeholder="Cidade" maxLength={MAX_ADDRESS_FIELD} className={baseInput} required/>
+
+            <select name="state" value={form.state} onChange={handleChange}
+                    className={baseInput} required>
               <option value="">UF</option>
-              {brazilStates.map((uf) => (
-                <option key={uf} value={uf}>
-                  {uf}
-                </option>
-              ))}
+              {brazilStates.map(uf=><option key={uf} value={uf}>{uf}</option>)}
             </select>
-            <InputMask
-              mask="99999-999"
-              maskChar={null}
-              name="cep"
-              value={form.cep}
-              onChange={handleChange}
-            >
-              {(props) => (
-                <input
-                  {...props}
-                  placeholder="CEP (00000-000)"
-                  className={baseInputClasses}
-                  required
-                />
-              )}
+
+            <InputMask mask="99999-999" maskChar={null}
+                       name="cep" value={form.cep} onChange={handleChange}>
+              {(props)=><input {...props} placeholder="CEP (00000-000)"
+                               className={`${baseInput} ${smallPH}`} required/>}
             </InputMask>
           </div>
 
           {/* Disponibilidade */}
           <div className="space-y-2">
-            <label className="block text-gray-700 font-semibold">
-              Disponibilidade:
-            </label>
-
+            <label className="font-semibold text-gray-700">Disponibilidade:</label>
             <div className="grid grid-cols-2 gap-4">
-              <input
-                name="hours_per_week"
-                type="number"
-                value={form.hours_per_week}
-                onChange={handleChange}
-                placeholder="Horas/semana"
-                className={baseInputClasses}
-                min={1}
-                required
-              />
+              <input name="hours_per_week" type="number" value={form.hours_per_week}
+                     onChange={handleChange} placeholder="Horas/semana"
+                     className={`${baseInput} ${smallPH}`} min={1} required/>
               <div />
             </div>
 
             <fieldset className="flex flex-wrap gap-3">
-              {daysOfWeek.map((d) => (
+              {daysOfWeek.map(d=>(
                 <label key={d} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    name="days"
-                    value={d}
-                    checked={form.days.includes(d)}
-                    onChange={handleChange}
-                    className="h-5 w-5 text-green-600"
-                  />
-                  <span className="text-gray-800 capitalize">{d}</span>
+                  <input type="checkbox" name="days" value={d}
+                         checked={form.days.includes(d)} onChange={handleChange}
+                         className="h-5 w-5 text-green-600"/>
+                  <span className="capitalize">{d}</span>
                 </label>
               ))}
             </fieldset>
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg shadow-md transition"
-          >
+          <button type="submit"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg shadow-md transition">
             Enviar
           </button>
         </form>
 
-        {status && (
-          <p className="mt-4 text-center text-lg font-medium text-gray-700">
-            {status}
-          </p>
-        )}
+        {status && <p className="mt-4 text-center text-lg font-medium text-gray-700">{status}</p>}
       </div>
     </div>
   );
