@@ -6,16 +6,16 @@ import InputMask from 'react-input-mask';
 import { supabase } from '../../lib/supabaseClient';
 
 /* ---------- limites ---------- */
-const MAX_NAME = 220;
-const MAX_EMAIL = 220;
-const MAX_PHONE = 30;
-const MAX_RELIGION = 200;
-const MAX_SPECIALTIES = 900;
-const MAX_ABOUT = 5000;
-const MAX_ADDRESS_FIELD = 200;
-const MAX_WORKSHOP_OTHER = 400;
+const MAX_NAME            = 220;
+const MAX_EMAIL           = 220;
+const MAX_PHONE           = 30;
+const MAX_RELIGION        = 200;
+const MAX_SPECIALTIES     = 900;
+const MAX_ABOUT           = 5000;
+const MAX_ADDRESS_FIELD   = 200;
+const MAX_WORKSHOP_OTHER  = 400;
 
-/* --------- CPF util --------- */
+/* ---------- util CPF ---------- */
 function validateCPF(cpf: string): boolean {
   const str = cpf.replace(/\D+/g, '');
   if (str.length !== 11) return false;
@@ -33,79 +33,78 @@ function validateCPF(cpf: string): boolean {
 }
 
 export default function Register() {
-  /* ---------- constantes fixas ---------- */
-  const daysOfWeek = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-  const unidades = ['Rio de Janeiro - CDD', 'Rio de Janeiro - Gardênia', 'Amazonas', 'Ceará'];
-  const maritalOptions = ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)'];
-  const workshopsList = [
-    'Organização bazar', 'Cozinha', 'Ajudante em oficina de Língua portuguesa',
-    'Ajudante em oficina de Matemática', 'Futebol', 'Balé', 'De leitura', 'De letramento',
-    'Informática', 'Língua inglesa', 'Língua espanhola', 'Artesanato',
-    'Ministrar oficina de lutas', 'Ajuda em eventos (Dia das mães, pais, Páscoa, Natal, ...)',
+  /* ---------- listas fixas ---------- */
+  const daysOfWeek   = ['segunda','terça','quarta','quinta','sexta','sábado'];
+  const unidades     = ['Rio de Janeiro - CDD','Rio de Janeiro - Gardênia','Amazonas','Ceará'];
+  const maritalOpts  = ['Solteiro(a)','Casado(a)','Divorciado(a)','Viúvo(a)'];
+  const workshopsLst = [
+    'Organização bazar','Cozinha','Ajudante em oficina de Língua portuguesa',
+    'Ajudante em oficina de Matemática','Futebol','Balé','De leitura','De letramento',
+    'Informática','Língua inglesa','Língua espanhola','Artesanato',
+    'Ministrar oficina de lutas','Ajuda em eventos (Dia das mães, pais, Páscoa, Natal, ...)',
     'Outros (especificar)'
   ];
-  const rjUnits = ['Rio de Janeiro - CDD', 'Rio de Janeiro - Gardênia'];
-  const brazilStates = [
+  const rjUnits = ['Rio de Janeiro - CDD','Rio de Janeiro - Gardênia'];
+  const brazilUF = [
     'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS',
     'MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'
   ];
 
   /* ---------- estado ---------- */
   const [form, setForm] = useState<any>({
-    full_name: '', cpf: '', email: '', phone: '', age: '',
-    religion: '', marital_status: '', unidade: '',
-    street: '', number: '', complement: '', district: '', city: '', state: '',
-    cep: '', hours_per_week: '',
-    days: [] as string[],
-    specialties: '', about: '',
-    workshops: [] as string[],
-    workshop_other: ''
+    full_name:'', cpf:'', email:'', phone:'', age:'', religion:'',
+    marital_status:'', unidade:'',
+    street:'', number:'', complement:'', district:'', city:'', state:'', cep:'',
+    hours_per_week:'', days:[], specialties:'', about:'',
+    workshops:[], workshop_other:''
   });
   const [status, setStatus] = useState('');
 
-  /* ---------- handleChange (agora funcional) ---------- */
+  /* ---------- handleChange ---------- */
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>
   ) => {
     const { name, value, checked } = e.target as any;
 
     if (name === 'days' || name === 'workshops') {
-      setForm(prev => {
+      setForm((prev: any) => {
         const arr = prev[name] || [];
         return {
           ...prev,
-          [name]: checked
-            ? [...arr, value]
-            : arr.filter((v: string) => v !== value)
+          [name]: checked ? [...arr, value] : arr.filter((v: string) => v !== value)
         };
       });
     } else {
-      setForm(prev => ({ ...prev, [name]: value }));
+      setForm((prev: any) => ({ ...prev, [name]: value }));
     }
   };
 
-  /* ---------- handleSubmit (limites + envio) ---------- */
+  /* ---------- handleSubmit ---------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // limites de caracteres
-    if (form.full_name.length > MAX_NAME)            { setStatus(`Nome ≤ ${MAX_NAME}`);          return; }
-    if (form.specialties.length > MAX_SPECIALTIES)   { setStatus(`Especialidades ≤ ${MAX_SPECIALTIES}`); return; }
-    if (form.about.length > MAX_ABOUT)               { setStatus(`"Sobre" ≤ ${MAX_ABOUT}`);      return; }
+    /* limites de caracteres */
+    if (form.full_name.length      > MAX_NAME)           { setStatus(`Nome ≤ ${MAX_NAME}`);             return; }
+    if (form.specialties.length    > MAX_SPECIALTIES)    { setStatus(`Especialidades ≤ ${MAX_SPECIALTIES}`); return; }
+    if (form.about.length          > MAX_ABOUT)          { setStatus(`"Sobre" ≤ ${MAX_ABOUT}`);         return; }
     if (form.workshop_other.length > MAX_WORKSHOP_OTHER) { setStatus(`Outros ≤ ${MAX_WORKSHOP_OTHER}`); return; }
 
-    // validações existentes
-    if (!form.days.length)           { setStatus('Selecione pelo menos um dia.'); return; }
-    if (!validateCPF(form.cpf))      { setStatus('CPF inválido.');                return; }
-    if (form.age === '' || +form.age < 0) { setStatus('Idade inválida.');         return; }
+    /* validações já existentes */
+    if (!form.days.length)                { setStatus('Selecione pelo menos um dia.'); return; }
+    if (!validateCPF(form.cpf))           { setStatus('CPF inválido.');                return; }
+    if (form.age === '' || +form.age < 0) { setStatus('Idade inválida.');              return; }
 
     setStatus('Enviando…');
 
     try {
-      const specialtiesArray = form.specialties.split(',').map((s:string)=>s.trim()).filter(Boolean);
+      const specialtiesArr = form.specialties
+        .split(',')
+        .map((s:string)=>s.trim())
+        .filter(Boolean);
+
       const createdAt = new Date().toISOString();
 
-      /* monta texto p/ embedding */
+      /* texto p/ embedding */
       const textToEmbed = [
         `Nome: ${form.full_name}`,
         `CPF: ${form.cpf}`,
@@ -116,28 +115,30 @@ export default function Register() {
         `Endereço: ${form.street}, ${form.district}, ${form.city}-${form.state}, CEP ${form.cep}`,
         `Horas/semana: ${form.hours_per_week}`,
         `Dias: ${form.days.join(', ')}`,
-        `Especialidades: ${specialtiesArray.join(', ')}`,
+        `Especialidades: ${specialtiesArr.join(', ')}`,
         `Sobre: ${form.about}`,
         form.workshops.length ? `Oficinas: ${form.workshops.join(', ')}` : '',
         form.workshop_other ? `Outra oficina: ${form.workshop_other}` : '',
         `Criado em: ${createdAt}`
       ].filter(Boolean).join('\n');
 
-      /* embedding */
+      /* gera embedding */
       const embRes = await fetch('/api/embeddings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: textToEmbed })
       });
-      const vec = await embRes.json();
+      if (!embRes.ok) throw new Error(await embRes.text());
+      const about_embedding = await embRes.json();
 
-      /* payload */
+      /* prepara payload */
       const payload = {
         ...form,
         age: +form.age,
-        specialties: specialtiesArray,
-        about_embedding: vec,
-        workshop_other: form.workshops.includes('Outros (especificar)') ? form.workshop_other : null,
+        specialties: specialtiesArr,
+        about_embedding,
+        workshop_other: form.workshops.includes('Outros (especificar)')
+          ? form.workshop_other : null,
         created_at: createdAt
       };
 
@@ -146,22 +147,22 @@ export default function Register() {
 
       setStatus('Enviado com sucesso! 🎉');
       setForm({
-        full_name:'',cpf:'',email:'',phone:'',age:'',religion:'',
-        marital_status:'',unidade:'',street:'',number:'',complement:'',
-        district:'',city:'',state:'',cep:'',hours_per_week:'',
-        days:[],specialties:'',about:'',workshops:[],workshop_other:''
+        full_name:'', cpf:'', email:'', phone:'', age:'', religion:'',
+        marital_status:'', unidade:'',
+        street:'', number:'', complement:'', district:'', city:'', state:'', cep:'',
+        hours_per_week:'', days:[], specialties:'', about:'',
+        workshops:[], workshop_other:''
       });
     } catch (err:any) {
-      setStatus('Erro: '+err.message);
+      setStatus('Erro: ' + err.message);
     }
   };
 
-  /* ---------- classes util ---------- */
+  /* ---------- classes ---------- */
   const baseInput = `
-    block w-full rounded-lg border border-gray-300
-    bg-white bg-opacity-80 px-4 py-3 placeholder-gray-500
-    focus:outline-none focus:ring-2 focus:ring-green-500 transition
-  `;
+    block w-full rounded-lg border border-gray-300 bg-white bg-opacity-80
+    px-4 py-3 placeholder-gray-500 focus:outline-none focus:ring-2
+    focus:ring-green-500 transition`;
   const smallPH = 'placeholder:text-xs sm:placeholder:text-sm';
 
   /* ---------- JSX ---------- */
@@ -176,12 +177,14 @@ export default function Register() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Nome */}
           <input name="full_name" value={form.full_name} onChange={handleChange}
-                 placeholder="Nome completo" maxLength={MAX_NAME} className={baseInput} required/>
+                 placeholder="Nome completo" maxLength={MAX_NAME}
+                 className={baseInput} required/>
 
           {/* CPF */}
           <InputMask mask="999.999.999-99" maskChar={null}
                      name="cpf" value={form.cpf} onChange={handleChange}>
-            {(props)=><input {...props} placeholder="CPF (000.000.000-00)" className={baseInput} required/>}
+            {(props)=><input {...props} placeholder="CPF (000.000.000-00)"
+                             className={baseInput} required/>}
           </InputMask>
 
           {/* Email */}
@@ -192,7 +195,7 @@ export default function Register() {
           {/* Telefone */}
           <input name="phone" type="tel" value={form.phone} onChange={handleChange}
                  placeholder="Tel (99)9999-9999 ou (99)99999-9999"
-                 pattern="^\(\d{2}\)\d{4,5}-\d{4}$"
+                 pattern="^\\(\\d{2}\\)\\d{4,5}-\\d{4}$"
                  title="Formato: (99)9999-9999 ou (99)99999-9999"
                  maxLength={MAX_PHONE}
                  className={`${baseInput} ${smallPH}`} required/>
@@ -210,7 +213,7 @@ export default function Register() {
           <select name="marital_status" value={form.marital_status} onChange={handleChange}
                   className={baseInput} required>
             <option value="">Estado civil</option>
-            {maritalOptions.map(opt=>(
+            {maritalOpts.map(opt=>(
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
@@ -227,7 +230,7 @@ export default function Register() {
             <fieldset className="space-y-2">
               <legend className="font-semibold text-gray-700">Oficinas / Áreas:</legend>
               <div className="flex flex-wrap gap-3">
-                {workshopsList.map(w=>(
+                {workshopsLst.map(w=>(
                   <label key={w} className="flex items-center gap-2">
                     <input type="checkbox" name="workshops" value={w}
                            checked={form.workshops.includes(w)} onChange={handleChange}
@@ -254,30 +257,33 @@ export default function Register() {
             <textarea name="about" value={form.about} onChange={handleChange}
               placeholder="Fale sobre você"
               className={`${baseInput} h-40 resize-y`} maxLength={MAX_ABOUT} required/>
-            <p className="text-right text-xs text-gray-500">
-              {form.about.length}/{MAX_ABOUT}
-            </p>
+            <p className="text-right text-xs text-gray-500">{form.about.length}/{MAX_ABOUT}</p>
           </div>
 
           {/* Endereço */}
           <div className="grid grid-cols-2 gap-4">
             <input name="street" value={form.street} onChange={handleChange}
-                   placeholder="Rua" maxLength={MAX_ADDRESS_FIELD} className={baseInput} required/>
+                   placeholder="Rua" maxLength={MAX_ADDRESS_FIELD}
+                   className={baseInput} required/>
             <input name="number" value={form.number} onChange={handleChange}
-                   placeholder="Número" maxLength={20} className={baseInput} required/>
+                   placeholder="Número" maxLength={20}
+                   className={baseInput} required/>
             <input name="complement" value={form.complement} onChange={handleChange}
-                   placeholder="Complemento" maxLength={MAX_ADDRESS_FIELD} className={baseInput}/>
+                   placeholder="Complemento" maxLength={MAX_ADDRESS_FIELD}
+                   className={baseInput}/>
             <input name="district" value={form.district} onChange={handleChange}
-                   placeholder="Bairro" maxLength={MAX_ADDRESS_FIELD} className={baseInput} required/>
+                   placeholder="Bairro" maxLength={MAX_ADDRESS_FIELD}
+                   className={baseInput} required/>
             <input name="city" value={form.city} onChange={handleChange}
-                   placeholder="Cidade" maxLength={MAX_ADDRESS_FIELD} className={baseInput} required/>
-
+                   placeholder="Cidade" maxLength={MAX_ADDRESS_FIELD}
+                   className={baseInput} required/>
             <select name="state" value={form.state} onChange={handleChange}
                     className={baseInput} required>
               <option value="">UF</option>
-              {brazilStates.map(uf=><option key={uf} value={uf}>{uf}</option>)}
+              {brazilUF.map(uf=><option key={uf} value={uf}>{uf}</option>)}
             </select>
 
+            {/* CEP */}
             <InputMask mask="99999-999" maskChar={null}
                        name="cep" value={form.cep} onChange={handleChange}>
               {(props)=><input {...props} placeholder="CEP (00000-000)"
