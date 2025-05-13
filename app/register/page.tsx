@@ -32,6 +32,28 @@ function validateCPF(cpf: string): boolean {
   return check === +str[10];
 }
 
+/* ---------- util PHONE ---------- */
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11);      // máx. 11 dígitos
+  if (!digits) return '';
+
+  const area   = digits.slice(0, 2);
+  const rest   = digits.slice(2);
+
+  if (rest.length <= 4)                        // (99)1234
+    return `(${area})${rest}`;
+  if (rest.length <= 8)                        // (99)1234-5678
+    return `(${area})${rest.slice(0, 4)}-${rest.slice(4)}`;
+
+  // 9 dígitos depois do DDD → (99)12345-6789
+  return `(${area})${rest.slice(0, 5)}-${rest.slice(5, 9)}`;
+}
+
+function validatePhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length === 10 || digits.length === 11;
+}
+
 export default function Register() {
   /* ---------- listas fixas ---------- */
   const daysOfWeek   = ['segunda','terça','quarta','quinta','sexta','sábado'];
@@ -60,7 +82,7 @@ export default function Register() {
   });
   const [status, setStatus] = useState('');
 
-  /* ---------- handleChange ---------- */
+  /* ---------- change handlers ---------- */
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>
   ) => {
@@ -74,9 +96,14 @@ export default function Register() {
           [name]: checked ? [...arr, value] : arr.filter((v: string) => v !== value)
         };
       });
-    } else {
+    } else if (name !== 'phone') {
       setForm((prev: any) => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setForm((prev: any) => ({ ...prev, phone: formatted }));
   };
 
   /* ---------- handleSubmit ---------- */
@@ -92,7 +119,10 @@ export default function Register() {
     /* validações já existentes */
     if (!form.days.length)                { setStatus('Selecione pelo menos um dia.'); return; }
     if (!validateCPF(form.cpf))           { setStatus('CPF inválido.');                return; }
+    if (!validatePhone(form.phone))       { setStatus('Telefone inválido. Use (99)9999-9999 ou (99)99999-9999'); return; }
     if (form.age === '' || +form.age < 0) { setStatus('Idade inválida.');              return; }
+
+    /* ... resto do handleSubmit permanece idêntico ... */
 
     setStatus('Enviando…');
 
@@ -192,10 +222,10 @@ export default function Register() {
                  placeholder="seu@exemplo.com" maxLength={MAX_EMAIL}
                  className={baseInput} required/>
 
-          {/* Telefone (regex com espaço opcional) */}
-          <input name="phone" type="tel" value={form.phone} onChange={handleChange}
+          {/* Telefone */}
+          <input name="phone" type="tel" value={form.phone} onChange={handlePhoneChange}
                  placeholder="Tel (99)9999-9999 ou (99)99999-9999"
-                 pattern="^\(\d{2}\)\s?\d{4,5}-\d{4}$"
+                 pattern="^\(\d{2}\)\d{4,5}-\d{4}$"
                  title="Formato: (99)9999-9999 ou (99)99999-9999"
                  maxLength={MAX_PHONE}
                  className={`${baseInput} ${smallPH}`} required/>
@@ -308,7 +338,7 @@ export default function Register() {
                          checked={form.days.includes(d)} onChange={handleChange}
                          className="h-5 w-5 text-green-600"/>
                   <span className="capitalize">{d}</span>
-                </label>
+                </label>	
               ))}
             </fieldset>
           </div>
